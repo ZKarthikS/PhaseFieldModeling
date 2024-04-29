@@ -5,26 +5,24 @@
 ! ---
 ! ----------------
 
-
-
 program fft_ca_v1
 
     use init_grain_micro_
     use prepare_fft_
     use free_energ_fft_ca_v1_
     use write_vtk_grid_values_
-    use fft_shift_
 
     implicit none
 
-    include '/usr/local/include/fftw3.f'
-    ! include './fftw3.f'
-    
+    include '/usr/local/include/fftw3.f'    
 
     integer :: NxNy, iflag, isolve, ngrain
+    
+    ! Simulation Cell Parameters, Material Parameters and Time Integration Parameters
     integer, parameter   :: Nx = 64, Ny = 64, nstep =5000, nprint = 500
-    integer(8) :: forward, backward, forw2
     real(8), parameter :: dx = 0.5, dy = 0.5, dtime = 0.005, coefA = 1.0, mobil = 5.0, grcoef = 0.1
+    
+    integer(8) :: forward, backward, forw2
     real(8) :: ttime, time0, time1, grain_sum, ncount, dummy!, numer, denom
     real(8), allocatable :: etas(:,:,:), etas_(:,:), glist(:), eta(:,:), dfdeta(:,:)
     real(8), allocatable :: kx(:), ky(:), k2(:,:), k4(:,:), eta2(:,:)!, k2_shift(:,:)
@@ -33,44 +31,20 @@ program fft_ca_v1
     double complex, allocatable :: etak(:,:), dfdetak(:,:), eta_interim(:,:)
     double complex :: numer, denom
 
-
     ! Get initial time
 
     call cpu_time(time0)
 
     open(unit = 2, file = 'area_frac.out')
-    open(unit = 3, file = 'eta.txt')
 
     call dfftw_init_threads(iret)
-    call dfftw_plan_with_nthreads(1)
+    call dfftw_plan_with_nthreads(1) ! Change the number inside the brackets to change the number of threads
 
     call dfftw_planner_nthreads(iret)
 
-
-    ! -- Simulation Cell parameters
-
-    ! integer, parameter :: Nx = 64
-    ! integer, parameter :: Ny = 64
     NxNy = Nx*Ny
-
-    ! real, parameter :: dx = 0.5
-    ! real, parameter :: dy = 0.5
-
-    ! -- Time integration parameters
-
-    ! integer, parameter :: nstep = 5000
-    ! integer, parameter :: nprint = 50
     
-    ! real, parameter :: dtime = 0.005
-    ! real, parameter :: coefA = 1.0
     ttime = 0.0
-
-
-    ! -- Material Parameters
-
-    ! real, parameter :: mobil = 5.0
-    ! real, parameter :: grcoef = 0.1
-
 
 
     iflag = 1
@@ -98,26 +72,12 @@ program fft_ca_v1
     etas = 0.0
     eta = 0.0
     dfdeta = 0.0
+    
     ! --
     ! --- Generate initial grain_structure
     ! -- 
 
     call init_grain_micro(Nx, Ny, dx, dy, iflag, isolve, etas, ngrain, glist)
-
-    ! write(*, *) 'NGrain, glist : ', ngrain, glist
-
-    ! write(*,*) 'etas : '
-
-    ! do igrain=1,ngrain
-    !     do i=1,Nx
-    !         write(*,*) etas(i,:,igrain)
-    !     enddo
-    ! enddo
-
-    ! write (*, *) 'etas(blah) : ', etas(62,62,1), etas(62,62,2)
-    ! write (*, *) 'glist : ', glist
-    ! write (*, *) 'ngrain : ', ngrain
-
 
     ! --
     ! --- Prepare the fft
@@ -125,25 +85,9 @@ program fft_ca_v1
 
     call prepare_fft(kx, ky, k2, k4, Nx, Ny, dx, dy)
 
-    ! write(*,*) 'k2 : '
-    ! do i=1,Nx 
-    !     write(*,*) k2(i,:)
-    ! enddo
-
-    ! call fft_shift(k2, k2_shift, Nx)
-
-    ! write(*,*) k4(2,1), k4(2,2), k4(64,64)
-
-
     ! --
     ! --- Evolve
     ! --
-
-    ! eta(2,2) = etas(2,2,1)
-
-    ! call free_energ_fft_ca_v1(2,2,ngrain, etas, eta, 2, dfdeta, Nx, Ny)
-
-    ! write(*,*) dfdeta(2,2)
 
     if(.not. allocated(etak)) allocate(etak(Nx,Ny))
     if(.not. allocated(dfdetak)) allocate(dfdetak(Nx,Ny))
@@ -182,32 +126,12 @@ program fft_ca_v1
                     enddo
                 enddo
 
-                ! write(*,*) 'dfdeta : '
-                ! do i=1,Nx
-                !     write(*,*) dfdeta(i,:)
-                ! enddo
-
-                ! write(*,*) 'eta : '
-                ! do i=1,Nx
-                !     write(*,*) eta(i,:)
-                ! enddo
-
                 etak = eta
                 dfdetak = dfdeta
  
                 call dfftw_execute_dft(forward, etak, etak)
 
                 call dfftw_execute_dft(forw2, dfdetak, dfdetak)
-
-                ! write(*,*) 'etak : '
-                ! do i=1,Nx
-                !     write(*,*) etak(i,:)
-                ! enddo
-
-                ! write(*,*) 'dfdetak : '
-                ! do i=1,Nx
-                !     write(*,*) dfdetak(i,:)
-                ! enddo
 
                 !--
                 !---- Time integration
@@ -229,11 +153,6 @@ program fft_ca_v1
                 
                 eta = REALPART(etak)
 
-                ! write(*,*) 'eta : '
-                ! do i=1,Nx
-                !     write(*,*) eta(i,:)
-                ! enddo
-
                 ! --
                 ! --
 
@@ -252,8 +171,6 @@ program fft_ca_v1
                         grain_sum = grain_sum + eta(i,j)
 
                         etas(i,j,igrain) = eta(i,j)
-                        
-                        ! write(3, *) eta(i,j)
 
                     enddo
                 enddo
@@ -288,13 +205,8 @@ program fft_ca_v1
                             ncount = ncount+1
                         endif
 
-                        ! write(3, *) etas(i,j,igrain)
-
                     enddo
                 enddo
-                ! write(2,'(F14.6)') REAL(ncount), numer, denom
-                ! write(3, '(F14.6)') eta2
-                ! write(3,*) '\n\n\n\n'
                 ncount = ncount/(1.0*NxNy)
                 write(2,'(F14.6)') REAL(ncount)
             enddo
@@ -302,21 +214,11 @@ program fft_ca_v1
             call write_vtk_grid_values(Nx, Ny, dx, dy, istep, eta2)
 
         endif
-
-        ! write(3, *) eta(16,16)!, numer, denom
-        ! write(3, *) numer, denom
-        ! write(3, *) dfdeta
-        ! do i=1,Nx
-        !     write(3,*) eta(i,:)
-        ! enddo
         
     enddo
-
-    ! write(3, *) etas(Nx,Ny,1), etas(Nx,Ny,2)
     
 
     close(2)
-    close(3)
 
     ! if(allocated(etas_)) deallocate(etas_)
     ! if(allocated(eta)) deallocate(eta)
@@ -336,7 +238,7 @@ program fft_ca_v1
 
     call cpu_time(time1)
 
-    write(*, *) time1-time0
+    write(*, *) "Time Taken : ", time1-time0
         
 
 
